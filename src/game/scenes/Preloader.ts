@@ -22,14 +22,14 @@ export class Preloader extends Scene {
     this.load.image("COIN_BG", "assets/COIN_BG.png");
     this.load.image("TIME_BG", "assets/TIME_BG.png");
     this.load.image("POPUP_WIN", "assets/POPUP_WIN.png");
-    this.load.image("FRUIT1", "assets/FRUIT1.png");
-    this.load.image("FRUIT1-ACTIVE", "assets/FRUIT1-ACTIVE.png");
-    this.load.image("FRUIT2", "assets/FRUIT2.png");
-    this.load.image("FRUIT2-ACTIVE", "assets/FRUIT2-ACTIVE.png");
-    this.load.image("FRUIT3", "assets/FRUIT3.png");
-    this.load.image("FRUIT3-ACTIVE", "assets/FRUIT3-ACTIVE.png");
-    this.load.image("FRUIT4", "assets/FRUIT4.png");
-    this.load.image("FRUIT4-ACTIVE", "assets/FRUIT4-ACTIVE.png");
+    this.load.image("APPLE", "assets/FRUIT1.png");
+    this.load.image("APPLE-ACTIVE", "assets/FRUIT1-ACTIVE.png");
+    this.load.image("BERRY", "assets/FRUIT2.png");
+    this.load.image("BERRY-ACTIVE", "assets/FRUIT2-ACTIVE.png");
+    this.load.image("CARROT", "assets/FRUIT3.png");
+    this.load.image("CARROT-ACTIVE", "assets/FRUIT3-ACTIVE.png");
+    this.load.image("PEAR", "assets/FRUIT4.png");
+    this.load.image("PEAR-ACTIVE", "assets/FRUIT4-ACTIVE.png");
   }
 
   create() {
