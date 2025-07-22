@@ -384,8 +384,6 @@ export class Game extends Scene {
       }
     }
 
-    console.log(makmak);
-
     const makmakCol = makmak.getData("col");
     const makmakRow = makmak.getData("row");
 
@@ -748,6 +746,40 @@ export class Game extends Scene {
     });
   }
 
+  getTileWithMaxConnections(
+    group: Phaser.GameObjects.Image[]
+  ): Phaser.GameObjects.Image {
+    let bestTile = group[0];
+    let maxConnections = -1;
+
+    for (const tile of group) {
+      const col = tile.getData("col");
+      const row = tile.getData("row");
+      let connections = 0;
+
+      for (const neighbor of group) {
+        if (neighbor === tile) continue;
+        const nCol = neighbor.getData("col");
+        const nRow = neighbor.getData("row");
+
+        const isAdjacent =
+          (Math.abs(nCol - col) === 1 && nRow === row) || // Horizontal
+          (Math.abs(nRow - row) === 1 && nCol === col); // Vertical
+
+        if (isAdjacent) {
+          connections++;
+        }
+      }
+
+      if (connections > maxConnections) {
+        maxConnections = connections;
+        bestTile = tile;
+      }
+    }
+
+    return bestTile;
+  }
+
   async removeTileGroup(matches: Phaser.GameObjects.Image[][]): Promise<void> {
     const promises: Promise<void>[] = [];
 
@@ -758,27 +790,18 @@ export class Game extends Scene {
       // 🔢 Score logic
 
       if (group.length >= 5) {
-        console.log(group.map((e) => e.getData("key")));
         this.score += 100;
 
-        let totalCol = 0;
-        let totalRow = 0;
-        for (const tile of group) {
-          totalCol += tile.getData("col");
-          totalRow += tile.getData("row");
-        }
+        const centerTile = this.getTileWithMaxConnections(group);
 
-        const centerCol = Math.round(totalCol / group.length);
-        const centerRow = Math.round(totalRow / group.length);
-
+        const centerCol = centerTile.getData("col");
+        const centerRow = centerTile.getData("row");
         spawnCol = this.selectedTile
           ? this.selectedTile.getData("col")
           : centerCol;
         spawnRow = this.selectedTile
           ? this.selectedTile.getData("row")
           : centerRow;
-
-        console.log("spawnPos: ", spawnCol, "/", spawnRow);
 
         spawnMakmakFlag = true;
       } else if (group.length === 4) this.score += 50;
