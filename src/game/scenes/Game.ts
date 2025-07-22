@@ -1,17 +1,16 @@
-import { MainMenu } from "./MainMenu";
 import { Scene } from "phaser";
 
 export class Game extends Scene {
   scoreText: Phaser.GameObjects.Text;
   timeText: Phaser.GameObjects.Text;
-  fruitGrid: (Phaser.GameObjects.Image | null)[][];
+  tileGrid: (Phaser.GameObjects.Image | null)[][];
   startGridX: number;
   startGridY: number;
   rows: number;
   cols: number;
   cellSize: number;
   gap: number;
-  fruits: string[];
+  tileKey: string[];
   selectedTile: Phaser.GameObjects.Image | null = null;
   targetTile: Phaser.GameObjects.Image | null = null;
   startPosX: number;
@@ -19,25 +18,37 @@ export class Game extends Scene {
   score: number = 0;
   isBusy: boolean = false;
   timerEvent: Phaser.Time.TimerEvent | null = null;
-  timeRemaining: number = 30; // seconds
+  timeRemaining: number;
+  lastSpawnedKey: string | null = null;
+
+  dropDuration: number;
+  swapDuration: number;
+  spawnDuration: number;
+  destroyDuration: number;
+  destroyDelay: number;
+  shuffleDuration: number;
 
   constructor() {
     super("Game");
-    this.fruitGrid = [];
-    this.rows = 7;
-    this.cols = 5;
-    this.gap = 5;
-    this.fruits = ["APPLE", "BERRY", "CARROT", "PEAR"];
+    this.tileGrid = [];
+    this.rows = 8;
+    this.cols = 6;
+    this.gap = 10;
+    this.tileKey = ["MOONCAKE", "EGGTART", "DRINK", "BURGER"];
+
+    this.dropDuration = 200;
+    this.swapDuration = 200;
+    this.spawnDuration = 300;
+    this.destroyDuration = 300;
+    this.destroyDelay = 300;
+    this.shuffleDuration = 300;
   }
 
   create() {
     const gameWidth = this.cameras.main.width;
     const gameHeight = this.cameras.main.height;
 
-    const gridWidth = gameWidth * 0.9;
-
-    // Set a gap between tiles (or calculate dynamically)
-    this.gap = 5; // or try 5 or 10
+    const gridWidth = gameWidth * 0.85;
 
     // Calculate tile size to fit gridWidth with gaps
     this.cellSize = (gridWidth - (this.cols - 1) * this.gap) / this.cols;
@@ -49,15 +60,15 @@ export class Game extends Scene {
     this.startGridX = (gameWidth - totalGridWidth) / 2 + this.cellSize / 2;
 
     // Start Y: center grid vertically (or choose a fixed value)
-    this.startGridY = 800;
+    this.startGridY = 540;
 
     this.add
       .image(0, 0, "BG_PLAY")
       .setOrigin(0, 0)
       .setDisplaySize(gameWidth, gameHeight);
 
-    this.createUI(gameWidth);
-    this.createFruitGrid(); // 🔥 now it actually creates the fruit grid
+    this.createUI(gameWidth, gameHeight);
+    this.createTileGrid(); // 🔥 now it actually creates the tile grid
     this.startTimer();
 
     this.input.on("pointermove", this.handlePointerMove, this);
@@ -68,20 +79,25 @@ export class Game extends Scene {
     });
   }
 
-  createUI(gameWidth: number) {
-    // Coin background
-    this.add
-      .image(gameWidth - 280, 370, "COIN_BG")
-      .setOrigin(0.5, 0.5)
-      .setScale(1.2)
-      .setAlpha(1);
+  createUI(gameWidth: number, gameHeight: number) {
+    //  // Coin background
+    //  this.add
+    //    .image(gameWidth - 280, 370, "COIN_BG")
+    //    .setOrigin(0.5, 0.5)
+    //    .setScale(1.2)
+    //    .setAlpha(1);
 
-    // Time background
+    //  // Time background
+    //  this.add
+    //    .image(300, 370, "TIME_BG")
+    //    .setOrigin(0.5, 0.5)
+    //    .setScale(1.2)
+    //    .setAlpha(1);
+
     this.add
-      .image(300, 370, "TIME_BG")
-      .setOrigin(0.5, 0.5)
-      .setScale(1.2)
-      .setAlpha(1);
+      .image(gameWidth / 2, gameHeight / 2, "BOARD")
+      .setDisplaySize(0.9 * gameWidth, 0.62 * gameHeight)
+      .setOrigin(0.5, 0.5);
 
     // Score text
     this.scoreText = this.add
@@ -103,7 +119,7 @@ export class Game extends Scene {
   }
 
   startTimer() {
-    this.timeRemaining = 30;
+    this.timeRemaining = 9999;
 
     this.timerEvent = this.time.addEvent({
       delay: 1000, // 1 second
@@ -129,7 +145,7 @@ export class Game extends Scene {
     });
   }
 
-  handlePointerMove(pointer: Phaser.Input.Pointer) {
+  async handlePointerMove(pointer: Phaser.Input.Pointer) {
     if (this.isBusy || !this.selectedTile || this.targetTile) return;
 
     const hoverCol = Math.floor(
@@ -156,27 +172,24 @@ export class Game extends Scene {
 
       if (isAdjacent) {
         this.isBusy = true;
-        this.targetTile = this.fruitGrid[hoverCol][hoverRow];
-        this.swapTiles();
-
-        this.time.delayedCall(250, () => {
-          this.checkMatch();
-        });
+        this.targetTile = this.tileGrid[hoverCol][hoverRow];
+        await this.swapTiles();
+        await this.checkMatch();
       }
     }
   }
 
-  createFruitGrid() {
+  createTileGrid() {
     //Loop through each column in the grid
     for (let col = 0; col < this.cols; col++) {
-      this.fruitGrid[col] = [];
+      this.tileGrid[col] = [];
       //Loop through each row in a column, starting from the top
       for (let row = 0; row < this.rows; row++) {
         //Add the tile to the game at this grid position
         const tile = this.addTile(col, row);
 
         //Keep a track of the tiles position in our tileGrid
-        this.fruitGrid[col][row] = tile;
+        this.tileGrid[col][row] = tile;
       }
     }
 
@@ -187,12 +200,12 @@ export class Game extends Scene {
   }
 
   getSafeRandomKey(col: number, row: number): string {
-    const possible = [...this.fruits];
+    const possible = [...this.tileKey];
 
     // Check horizontal (left side)
     if (col >= 2) {
-      const left1 = this.fruitGrid[col - 1][row];
-      const left2 = this.fruitGrid[col - 2][row];
+      const left1 = this.tileGrid[col - 1][row];
+      const left2 = this.tileGrid[col - 2][row];
       if (left1 && left2 && left1.getData("key") === left2.getData("key")) {
         const banned = left1.getData("key");
         const index = possible.indexOf(banned);
@@ -202,8 +215,8 @@ export class Game extends Scene {
 
     // Check vertical (above)
     if (row >= 2) {
-      const above1 = this.fruitGrid[col][row - 1];
-      const above2 = this.fruitGrid[col][row - 2];
+      const above1 = this.tileGrid[col][row - 1];
+      const above2 = this.tileGrid[col][row - 2];
       if (above1 && above2 && above1.getData("key") === above2.getData("key")) {
         const banned = above1.getData("key");
         const index = possible.indexOf(banned);
@@ -211,18 +224,38 @@ export class Game extends Scene {
       }
     }
 
-    // Pick a safe random key
-    return Phaser.Utils.Array.GetRandom(possible);
+    // Check last spawned key
+    if (this.lastSpawnedKey) {
+      const index = possible.indexOf(this.lastSpawnedKey);
+      if (index !== -1 && possible.length > 1) {
+        possible.splice(index, 1);
+      }
+    }
+
+    const key = Phaser.Utils.Array.GetRandom(possible);
+
+    // Update last spawned
+    this.lastSpawnedKey = key;
+
+    return key;
+  }
+
+  getTileX(col: number) {
+    return this.startGridX + col * (this.cellSize + this.gap);
+  }
+
+  getTileY(row: number) {
+    return this.startGridY + row * (this.cellSize + this.gap);
   }
 
   addTile(col: number, row: number): Phaser.GameObjects.Image {
-    // Choose a random fruit texture key
+    // Choose a random texture key
     const key = this.getSafeRandomKey(col, row);
 
     // Calculate position with cell size and gap
-    const xPos = this.startGridX + col * (this.cellSize + this.gap);
-    const yPos = this.startGridY + row * (this.cellSize + this.gap);
-    const yStart = yPos - this.cellSize * 2; // spawn from top
+    const xPos = this.getTileX(col);
+    const yPos = this.getTileY(row);
+    const yStart = yPos - this.cellSize * 1.1; // spawn from top
 
     // Create tile image
     const tile = this.add.image(xPos, yStart, key);
@@ -235,7 +268,7 @@ export class Game extends Scene {
     this.tweens.add({
       targets: tile,
       y: yPos,
-      duration: 200,
+      duration: this.dropDuration,
       ease: "Cubic.easeInOut",
     });
 
@@ -260,23 +293,23 @@ export class Game extends Scene {
     }
   }
 
-  swapTiles() {
-    // Get original grid positions
+  async swapTiles() {
     if (!this.selectedTile || !this.targetTile) return;
+
     const tile1Col = this.selectedTile.getData("col");
     const tile1Row = this.selectedTile.getData("row");
     const tile2Col = this.targetTile.getData("col");
     const tile2Row = this.targetTile.getData("row");
 
-    // Swap tiles in fruitGrid array
-    this.fruitGrid[tile1Col][tile1Row] = this.targetTile;
-    this.fruitGrid[tile2Col][tile2Row] = this.selectedTile;
+    // Swap in tileGrid
+    this.tileGrid[tile1Col][tile1Row] = this.targetTile;
+    this.tileGrid[tile2Col][tile2Row] = this.selectedTile;
 
-    // Update each tile's stored grid position
+    // Update tile data
     this.selectedTile.setData({ col: tile2Col, row: tile2Row });
     this.targetTile.setData({ col: tile1Col, row: tile1Row });
 
-    // Calculate pixel positions
+    // Pixel position helper
     const getTilePosition = (col: number, row: number) => {
       const x = this.startGridX + col * (this.cellSize + this.gap);
       const y = this.startGridY + row * (this.cellSize + this.gap);
@@ -286,29 +319,155 @@ export class Game extends Scene {
     const pos1 = getTilePosition(tile2Col, tile2Row);
     const pos2 = getTilePosition(tile1Col, tile1Row);
 
-    // Animate the swap using tweens
-    this.tweens.add({
-      targets: this.selectedTile,
-      x: pos1.x,
-      y: pos1.y,
-      duration: 200,
-      ease: "Linear",
+    // Create tween promises
+    const tween1 = new Promise<void>((resolve) => {
+      this.tweens.add({
+        targets: this.selectedTile,
+        x: pos1.x,
+        y: pos1.y,
+        duration: this.swapDuration,
+        ease: "Linear",
+        onComplete: () => resolve(),
+      });
     });
 
-    this.tweens.add({
-      targets: this.targetTile,
-      x: pos2.x,
-      y: pos2.y,
-      duration: 200,
-      ease: "Linear",
+    const tween2 = new Promise<void>((resolve) => {
+      this.tweens.add({
+        targets: this.targetTile,
+        x: pos2.x,
+        y: pos2.y,
+        duration: this.swapDuration,
+        ease: "Linear",
+        onComplete: () => resolve(),
+      });
     });
+
+    // Wait for both tweens to complete
+    await Promise.all([tween1, tween2]);
+  }
+
+  async destroyAllTilesWithKey(
+    targetKey: string,
+    makmak: Phaser.GameObjects.Image
+  ): Promise<void> {
+    const destroyPromises: Promise<void>[] = [];
+
+    for (let col = 0; col < this.cols; col++) {
+      for (let row = 0; row < this.rows; row++) {
+        const tile = this.tileGrid[col][row];
+        if (tile && tile.getData("key") === targetKey) {
+          const border = this.add
+            .image(tile.x, tile.y, "TILE-BORDER")
+            .setDepth(tile.depth + 1)
+            .setDisplaySize(tile.displayWidth, tile.displayHeight);
+
+          const promise = new Promise<void>((resolve) => {
+            // Delay to show the active effect
+            this.time.delayedCall(this.destroyDelay, () => {
+              // Animate fade out
+              this.tweens.add({
+                targets: [tile, border],
+                alpha: 0,
+                duration: this.destroyDuration,
+                onComplete: () => {
+                  tile.destroy();
+                  border.destroy();
+                  this.tileGrid[col][row] = null;
+                  resolve();
+                },
+              });
+            });
+          });
+
+          destroyPromises.push(promise);
+        }
+      }
+    }
+
+    console.log(makmak);
+
+    const makmakCol = makmak.getData("col");
+    const makmakRow = makmak.getData("row");
+
+    const border = this.add
+      .image(makmak.x, makmak.y, "TILE-BORDER")
+      .setDepth(makmak.depth + 1)
+      .setDisplaySize(makmak.displayWidth, makmak.displayHeight);
+
+    const promise = new Promise<void>((resolve) => {
+      // Delay to show the active effect
+      this.time.delayedCall(this.destroyDelay, () => {
+        // Animate fade out
+        this.tweens.add({
+          targets: [makmak, border],
+          alpha: 0,
+          duration: this.destroyDuration,
+          onComplete: () => {
+            makmak.destroy();
+            border.destroy();
+            this.tileGrid[makmakCol][makmakRow] = null;
+            resolve();
+          },
+        });
+      });
+    });
+    destroyPromises.push(promise);
+
+    await Promise.all(destroyPromises);
+  }
+
+  async makmakMove(targetKey: string, makmak: Phaser.GameObjects.Image) {
+    if (this.tileKey.includes(targetKey)) {
+      // 1. Destroy tiles by key
+      await this.destroyAllTilesWithKey(targetKey, makmak);
+
+      // 2. Drop remaining tiles to fill gaps
+      await this.dropTiles();
+
+      // 3. Add new tiles at the top
+      await this.fillTiles();
+
+      // 4. After animations are done, reset selected state
+      this.tileUp();
+
+      // 5. Re-check for additional matches after everything settles
+      await this.checkMatch();
+
+      if (!this.hasPossibleMoves()) {
+        // Do reshuffle or reset here
+        await this.reshuffle();
+      }
+    } else {
+      await this.swapTiles();
+
+      // Reset state after swap back
+      this.tileUp();
+      this.isBusy = false;
+    }
   }
 
   async checkMatch() {
-    const rawMatches = this.getMatches(this.fruitGrid);
+    this.isBusy = true;
+
+    const rawMatches = this.getMatches(this.tileGrid);
     const matches = this.mergeOverlappingMatches(rawMatches);
 
-    if (matches.length > 0) {
+    const selectedKey = this.selectedTile?.getData("key");
+    const targetKey = this.targetTile?.getData("key");
+
+    if (
+      this.selectedTile &&
+      selectedKey === "MAKMAK" &&
+      targetKey !== "MAKMAK"
+    ) {
+      await this.makmakMove(targetKey, this.selectedTile);
+    } else if (
+      selectedKey !== "MAKMAK" &&
+      this.targetTile &&
+      targetKey === "MAKMAK"
+    ) {
+      await this.makmakMove(selectedKey, this.targetTile);
+    } else if (matches.length > 0) {
       // 1. Remove matched tiles
       await this.removeTileGroup(matches);
 
@@ -318,15 +477,9 @@ export class Game extends Scene {
       // 3. Add new tiles at the top
       await this.fillTiles();
 
-      // 4. After animations are done, reset selected state
-      this.time.delayedCall(250, () => {
-        this.tileUp();
-      });
+      this.tileUp();
 
-      // 5. Re-check for additional matches after everything settles
-      this.time.delayedCall(250, () => {
-        this.checkMatch();
-      });
+      await this.checkMatch();
 
       if (!this.hasPossibleMoves()) {
         // Do reshuffle or reset here
@@ -334,36 +487,34 @@ export class Game extends Scene {
       }
     } else {
       // No match — reverse the swap visually
-      this.swapTiles();
+      await this.swapTiles();
 
       // Reset state after swap back
-      this.time.delayedCall(250, () => {
-        this.tileUp();
-        this.isBusy = false;
-      });
+      this.tileUp();
+      this.isBusy = false;
     }
   }
 
   hasPossibleMoves(): boolean {
     for (let col = 0; col < this.cols; col++) {
       for (let row = 0; row < this.rows; row++) {
-        const currentTile = this.fruitGrid[col][row];
+        const currentTile = this.tileGrid[col][row];
 
         if (!currentTile) continue;
 
         // Check swap with right neighbor
         if (col < this.cols - 1) {
-          const rightTile = this.fruitGrid[col + 1][row];
+          const rightTile = this.tileGrid[col + 1][row];
           if (rightTile) {
             // Swap temporarily
-            this.fruitGrid[col][row] = rightTile;
-            this.fruitGrid[col + 1][row] = currentTile;
+            this.tileGrid[col][row] = rightTile;
+            this.tileGrid[col + 1][row] = currentTile;
 
-            const matches = this.getMatches(this.fruitGrid);
+            const matches = this.getMatches(this.tileGrid);
 
             // Swap back
-            this.fruitGrid[col][row] = currentTile;
-            this.fruitGrid[col + 1][row] = rightTile;
+            this.tileGrid[col][row] = currentTile;
+            this.tileGrid[col + 1][row] = rightTile;
 
             if (matches.length > 0) return true;
           }
@@ -371,17 +522,17 @@ export class Game extends Scene {
 
         // Check swap with bottom neighbor
         if (row < this.rows - 1) {
-          const bottomTile = this.fruitGrid[col][row + 1];
+          const bottomTile = this.tileGrid[col][row + 1];
           if (bottomTile) {
             // Swap temporarily
-            this.fruitGrid[col][row] = bottomTile;
-            this.fruitGrid[col][row + 1] = currentTile;
+            this.tileGrid[col][row] = bottomTile;
+            this.tileGrid[col][row + 1] = currentTile;
 
-            const matches = this.getMatches(this.fruitGrid);
+            const matches = this.getMatches(this.tileGrid);
 
             // Swap back
-            this.fruitGrid[col][row] = currentTile;
-            this.fruitGrid[col][row + 1] = bottomTile;
+            this.tileGrid[col][row] = currentTile;
+            this.tileGrid[col][row + 1] = bottomTile;
 
             if (matches.length > 0) return true;
           }
@@ -406,7 +557,7 @@ export class Game extends Scene {
     const tiles: Phaser.GameObjects.Image[] = [];
     for (let col = 0; col < this.cols; col++) {
       for (let row = 0; row < this.rows; row++) {
-        const tile = this.fruitGrid[col][row];
+        const tile = this.tileGrid[col][row];
         if (tile) tiles.push(tile);
       }
     }
@@ -419,7 +570,7 @@ export class Game extends Scene {
     for (let col = 0; col < this.cols; col++) {
       for (let row = 0; row < this.rows; row++) {
         const tile = tiles[index];
-        this.fruitGrid[col][row] = tile;
+        this.tileGrid[col][row] = tile;
         tile.setData("col", col);
         tile.setData("row", row);
 
@@ -432,7 +583,7 @@ export class Game extends Scene {
           targets: tile,
           x: x,
           y: y,
-          duration: 300,
+          duration: this.shuffleDuration,
           ease: "Cubic.easeInOut",
         });
 
@@ -444,7 +595,7 @@ export class Game extends Scene {
     await new Promise((resolve) => this.time.delayedCall(350, resolve));
 
     // 5. Check if any matches after reshuffle, if so reshuffle again
-    if (this.getMatches(this.fruitGrid).length > 0) {
+    if (this.getMatches(this.tileGrid).length > 0) {
       await this.reshuffle();
     }
   }
@@ -475,6 +626,7 @@ export class Game extends Scene {
           current &&
           prev1 &&
           prev2 &&
+          current.getData("key") !== "MAKMAK" &&
           current.getData("key") === prev1.getData("key") &&
           current.getData("key") === prev2.getData("key")
         ) {
@@ -506,6 +658,7 @@ export class Game extends Scene {
           current &&
           prev1 &&
           prev2 &&
+          current.getData("key") !== "MAKMAK" &&
           current.getData("key") === prev1.getData("key") &&
           current.getData("key") === prev2.getData("key")
         ) {
@@ -554,54 +707,131 @@ export class Game extends Scene {
     return merged;
   }
 
+  async spawnMakmakTile(col: number, row: number) {
+    // Create tile image
+    const xPos = this.getTileX(col);
+    const yPos = this.getTileY(row);
+
+    const tile = this.add
+      .image(xPos, yPos, "MAKMAK")
+      .setOrigin(0.5)
+      .setAlpha(0)
+      .setScale(0) // Start at scale 0
+      .setData({ row, col, key: "MAKMAK" });
+
+    // Force it to visually match the tile size regardless of original image size
+    tile.setDisplaySize(this.cellSize, this.cellSize);
+
+    // Store original displaySize so scale = 1 means "cellSize"
+    const originalScaleX = tile.scaleX;
+    const originalScaleY = tile.scaleY;
+
+    // Reset to 0 to animate from nothing
+    tile.setScale(0);
+
+    this.tileGrid[col][row] = tile;
+
+    // Enable input
+    tile.setInteractive();
+    tile.on("pointerdown", () => this.tileDown(tile));
+
+    await new Promise<void>((resolve) => {
+      this.tweens.add({
+        targets: tile,
+        alpha: 1,
+        scaleX: originalScaleX,
+        scaleY: originalScaleY,
+        ease: "Back.Out",
+        duration: this.spawnDuration,
+        onComplete: () => resolve(),
+      });
+    });
+  }
+
   async removeTileGroup(matches: Phaser.GameObjects.Image[][]): Promise<void> {
     const promises: Promise<void>[] = [];
 
     for (const group of matches) {
+      let spawnMakmakFlag = false;
+      let spawnCol = 0;
+      let spawnRow = 0;
       // 🔢 Score logic
-      if (group.length >= 5) this.score += 100;
-      else if (group.length === 4) this.score += 50;
+
+      if (group.length >= 5) {
+        console.log(group.map((e) => e.getData("key")));
+        this.score += 100;
+
+        let totalCol = 0;
+        let totalRow = 0;
+        for (const tile of group) {
+          totalCol += tile.getData("col");
+          totalRow += tile.getData("row");
+        }
+
+        const centerCol = Math.round(totalCol / group.length);
+        const centerRow = Math.round(totalRow / group.length);
+
+        spawnCol = this.selectedTile
+          ? this.selectedTile.getData("col")
+          : centerCol;
+        spawnRow = this.selectedTile
+          ? this.selectedTile.getData("row")
+          : centerRow;
+
+        console.log("spawnPos: ", spawnCol, "/", spawnRow);
+
+        spawnMakmakFlag = true;
+      } else if (group.length === 4) this.score += 50;
       else if (group.length === 3) this.score += 30;
 
       // 🖥 Update UI
       this.scoreText.setText(this.score.toString());
       for (const tile of group) {
-        const col = tile.getData("col");
-        const row = tile.getData("row");
-        const baseKey = tile.getData("key");
+        if (tile.getData("key")) {
+          const col = tile.getData("col");
+          const row = tile.getData("row");
 
-        // Change texture to "-ACTIVE" variant
-        tile.setTexture(`${baseKey}-ACTIVE`);
+          const border = this.add
+            .image(tile.x, tile.y, "TILE-BORDER")
+            .setDepth(tile.depth + 1)
+            .setDisplaySize(tile.displayWidth, tile.displayHeight);
 
-        const promise = new Promise<void>((resolve) => {
-          // Delay to show the active effect
-          this.time.delayedCall(500, () => {
-            // Animate fade out
-            this.tweens.add({
-              targets: tile,
-              alpha: 0,
-              duration: 150,
-              onComplete: () => {
-                tile.destroy();
+          const promise = new Promise<void>((resolve) => {
+            // Delay to show the active effect
+            this.time.delayedCall(this.destroyDelay, () => {
+              // Animate fade out
+              this.tweens.add({
+                targets: [tile, border],
+                alpha: 0,
+                duration: this.destroyDuration,
+                onComplete: async () => {
+                  tile.destroy();
+                  border.destroy();
 
-                // Remove from grid
-                if (
-                  col >= 0 &&
-                  col < this.cols &&
-                  row >= 0 &&
-                  row < this.rows &&
-                  this.fruitGrid[col][row] === tile
-                ) {
-                  this.fruitGrid[col][row] = null;
-                }
+                  // Remove from grid
+                  if (
+                    col >= 0 &&
+                    col < this.cols &&
+                    row >= 0 &&
+                    row < this.rows &&
+                    this.tileGrid[col][row] === tile
+                  ) {
+                    this.tileGrid[col][row] = null;
+                  }
 
-                resolve();
-              },
+                  if (spawnMakmakFlag && spawnCol === col && spawnRow === row) {
+                    await this.spawnMakmakTile(spawnCol, spawnRow);
+                    spawnMakmakFlag = false;
+                  }
+
+                  resolve();
+                },
+              });
             });
           });
-        });
 
-        promises.push(promise);
+          promises.push(promise);
+        }
       }
     }
 
@@ -617,12 +847,12 @@ export class Game extends Scene {
       for (let col = 0; col < this.cols; col++) {
         for (let row = this.rows - 1; row > 0; row--) {
           if (
-            this.fruitGrid[col][row] === null &&
-            this.fruitGrid[col][row - 1] !== null
+            this.tileGrid[col][row] === null &&
+            this.tileGrid[col][row - 1] !== null
           ) {
-            const tileAbove = this.fruitGrid[col][row - 1];
-            this.fruitGrid[col][row] = tileAbove;
-            this.fruitGrid[col][row - 1] = null;
+            const tileAbove = this.tileGrid[col][row - 1];
+            this.tileGrid[col][row] = tileAbove;
+            this.tileGrid[col][row - 1] = null;
 
             tileAbove?.setData("row", row);
             const y = this.startGridY + row * (this.cellSize + this.gap);
@@ -631,7 +861,7 @@ export class Game extends Scene {
             this.tweens.add({
               targets: tileAbove,
               y: y,
-              duration: 200,
+              duration: this.dropDuration,
               ease: "Linear",
               onComplete: () => {
                 completed++;
@@ -652,9 +882,9 @@ export class Game extends Scene {
   async fillTiles() {
     for (let col = 0; col < this.cols; col++) {
       for (let row = 0; row < this.rows; row++) {
-        if (this.fruitGrid[col][row] === null) {
+        if (this.tileGrid[col][row] === null) {
           const newTile = this.addTile(col, row);
-          this.fruitGrid[col][row] = newTile;
+          this.tileGrid[col][row] = newTile;
         }
       }
     }

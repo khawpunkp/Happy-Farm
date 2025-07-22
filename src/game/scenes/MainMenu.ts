@@ -19,6 +19,15 @@ export class MainMenu extends Scene {
       .setOrigin(0, 0)
       .setDisplaySize(gameWidth, gameHeight);
 
+    this.add
+      .text(gameWidth / 2, 850, "คงเหลือ 1/1 สิทธิ์ต่อวัน", {
+        fontSize: "45px",
+        fontFamily: "Arial", // หรือฟอนต์อื่นที่รองรับภาษาไทย
+        color: "black", // สีข้อความ
+        align: "center",
+      })
+      .setOrigin(0.5, 0);
+
     this.startButton = createButtonWithImage({
       scene: this,
       x: gameWidth / 2,
