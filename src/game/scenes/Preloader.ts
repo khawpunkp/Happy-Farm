@@ -10,13 +10,14 @@ export class Preloader extends Scene {
     const gameHeight = this.cameras.main.height;
 
     this.add
-      .image(0, 0, "BG_MENU")
+      .image(0, 0, "BG_LOADING")
       .setOrigin(0, 0)
       .setDisplaySize(gameWidth, gameHeight);
   }
 
   preload() {
     //  Load the assets for the game - Replace with the path to your own assets
+    this.load.image("BG_MENU", "assets/BG_MENU.png");
     this.load.image("BG_PLAY", "assets/BG_PLAY.png");
     this.load.image("BTN_PLAY", "assets/BTN_PLAY.png");
     this.load.image("COIN_BG", "assets/COIN_BG.png");
@@ -38,8 +39,10 @@ export class Preloader extends Scene {
     //  When all the assets are loaded go to the next scene.
     //  We can go there immediately via: this.scene.start('MainMenu');
     //  Or we could use a Scene transition to fade between the two scenes:
-
-    this.scene.start("MainMenu");
+    this.cameras.main.fadeOut(500, 0, 0, 0);
+    this.cameras.main.once("camerafadeoutcomplete", () => {
+      this.scene.start("MainMenu");
+    });
 
     //  When the transition completes, it will move automatically to the MainMenu scene
   }

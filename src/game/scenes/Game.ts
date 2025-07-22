@@ -13,6 +13,7 @@ export class Game extends Scene {
   tileKey: string[];
   selectedTile: Phaser.GameObjects.Image | null = null;
   targetTile: Phaser.GameObjects.Image | null = null;
+
   startPosX: number;
   startPosY: number;
   score: number = 0;
@@ -20,6 +21,8 @@ export class Game extends Scene {
   timerEvent: Phaser.Time.TimerEvent | null = null;
   timeRemaining: number;
   lastSpawnedKey: string | null = null;
+
+  scoreMultiplier: number;
 
   dropDuration: number;
   swapDuration: number;
@@ -35,6 +38,8 @@ export class Game extends Scene {
     this.cols = 6;
     this.gap = 10;
     this.tileKey = ["MOONCAKE", "EGGTART", "DRINK", "BURGER"];
+
+    this.scoreMultiplier = 50;
 
     this.dropDuration = 200;
     this.swapDuration = 200;
@@ -119,7 +124,7 @@ export class Game extends Scene {
   }
 
   startTimer() {
-    this.timeRemaining = 9999;
+    this.timeRemaining = 60;
 
     this.timerEvent = this.time.addEvent({
       delay: 1000, // 1 second
@@ -179,23 +184,21 @@ export class Game extends Scene {
     }
   }
 
-  createTileGrid() {
+  async createTileGrid() {
+    let tileArray: { col: number; row: number }[] = [];
+
     //Loop through each column in the grid
     for (let col = 0; col < this.cols; col++) {
       this.tileGrid[col] = [];
       //Loop through each row in a column, starting from the top
       for (let row = 0; row < this.rows; row++) {
-        //Add the tile to the game at this grid position
-        const tile = this.addTile(col, row);
-
-        //Keep a track of the tiles position in our tileGrid
-        this.tileGrid[col][row] = tile;
+        tileArray.push({ col, row });
       }
     }
 
-    // Check for initial matches after grid is created
-    this.time.delayedCall(250, () => {
-      this.checkMatch();
+    this.time.delayedCall(250, async () => {
+      await this.addTiles(tileArray);
+      await this.checkMatch();
     });
   }
 
@@ -248,37 +251,42 @@ export class Game extends Scene {
     return this.startGridY + row * (this.cellSize + this.gap);
   }
 
-  addTile(col: number, row: number): Phaser.GameObjects.Image {
-    // Choose a random texture key
-    const key = this.getSafeRandomKey(col, row);
+  async addTiles(positions: { col: number; row: number }[]) {
+    const tilePromises: Promise<void>[] = [];
 
-    // Calculate position with cell size and gap
-    const xPos = this.getTileX(col);
-    const yPos = this.getTileY(row);
-    const yStart = yPos - this.cellSize * 1.1; // spawn from top
+    for (const { col, row } of positions) {
+      const key = this.getSafeRandomKey(col, row);
+      const xPos = this.getTileX(col);
+      const yPos = this.getTileY(row);
+      const yStart = yPos - this.cellSize * 1.1;
 
-    // Create tile image
-    const tile = this.add.image(xPos, yStart, key);
-    tile.setOrigin(0.5);
-    tile
-      .setDisplaySize(this.cellSize, this.cellSize) // Optional: ensure consistent size
-      .setData({ row, col, key });
+      const tile = this.add
+        .image(xPos, yStart, key)
+        .setOrigin(0.5)
+        .setDisplaySize(this.cellSize, this.cellSize)
+        .setData({ row, col, key });
 
-    // Animate tile falling into place
-    this.tweens.add({
-      targets: tile,
-      y: yPos,
-      duration: this.dropDuration,
-      ease: "Cubic.easeInOut",
-    });
+      // Await tween to finish
+      const promise = new Promise<void>((resolve) => {
+        this.tweens.add({
+          targets: tile,
+          y: yPos,
+          duration: this.dropDuration,
+          ease: "Cubic.easeInOut",
+          onComplete: () => {
+            tile.setInteractive();
+            tile.on("pointerdown", () => this.tileDown(tile));
+            this.tileGrid[col][row] = tile;
 
-    // Enable input
-    tile.setInteractive();
-    tile.on("pointerdown", () => this.tileDown(tile));
+            resolve();
+          },
+        });
+      });
 
-    // Custom property to track type (you can define an interface if needed)
+      tilePromises.push(promise);
+    }
 
-    return tile;
+    await Promise.all(tilePromises);
   }
 
   tileDown(tile: Phaser.GameObjects.Image) {
@@ -296,18 +304,18 @@ export class Game extends Scene {
   async swapTiles() {
     if (!this.selectedTile || !this.targetTile) return;
 
-    const tile1Col = this.selectedTile.getData("col");
-    const tile1Row = this.selectedTile.getData("row");
-    const tile2Col = this.targetTile.getData("col");
-    const tile2Row = this.targetTile.getData("row");
+    const selectedCol = this.selectedTile.getData("col");
+    const selectedRow = this.selectedTile.getData("row");
+    const targetCol = this.targetTile.getData("col");
+    const targetRow = this.targetTile.getData("row");
 
     // Swap in tileGrid
-    this.tileGrid[tile1Col][tile1Row] = this.targetTile;
-    this.tileGrid[tile2Col][tile2Row] = this.selectedTile;
+    this.tileGrid[selectedCol][selectedRow] = this.targetTile;
+    this.tileGrid[targetCol][targetRow] = this.selectedTile;
 
     // Update tile data
-    this.selectedTile.setData({ col: tile2Col, row: tile2Row });
-    this.targetTile.setData({ col: tile1Col, row: tile1Row });
+    this.selectedTile.setData({ col: targetCol, row: targetRow });
+    this.targetTile.setData({ col: selectedCol, row: selectedRow });
 
     // Pixel position helper
     const getTilePosition = (col: number, row: number) => {
@@ -316,8 +324,8 @@ export class Game extends Scene {
       return { x, y };
     };
 
-    const pos1 = getTilePosition(tile2Col, tile2Row);
-    const pos2 = getTilePosition(tile1Col, tile1Row);
+    const pos1 = getTilePosition(targetCol, targetRow);
+    const pos2 = getTilePosition(selectedCol, selectedRow);
 
     // Create tween promises
     const tween1 = new Promise<void>((resolve) => {
@@ -351,11 +359,14 @@ export class Game extends Scene {
     makmak: Phaser.GameObjects.Image
   ): Promise<void> {
     const destroyPromises: Promise<void>[] = [];
+    let tilesFound = 0;
 
     for (let col = 0; col < this.cols; col++) {
       for (let row = 0; row < this.rows; row++) {
         const tile = this.tileGrid[col][row];
         if (tile && tile.getData("key") === targetKey) {
+          tilesFound++;
+
           const border = this.add
             .image(tile.x, tile.y, "TILE-BORDER")
             .setDepth(tile.depth + 1)
@@ -383,6 +394,8 @@ export class Game extends Scene {
         }
       }
     }
+
+    tilesFound++;
 
     const makmakCol = makmak.getData("col");
     const makmakRow = makmak.getData("row");
@@ -412,6 +425,9 @@ export class Game extends Scene {
     destroyPromises.push(promise);
 
     await Promise.all(destroyPromises);
+
+    this.score += tilesFound * this.scoreMultiplier;
+    this.scoreText.setText(this.score.toString());
   }
 
   async makmakMove(targetKey: string, makmak: Phaser.GameObjects.Image) {
@@ -429,7 +445,9 @@ export class Game extends Scene {
       this.tileUp();
 
       // 5. Re-check for additional matches after everything settles
-      await this.checkMatch();
+      this.time.delayedCall(200, async () => {
+        await this.checkMatch();
+      });
 
       if (!this.hasPossibleMoves()) {
         // Do reshuffle or reset here
@@ -477,7 +495,9 @@ export class Game extends Scene {
 
       this.tileUp();
 
-      await this.checkMatch();
+      this.time.delayedCall(200, async () => {
+        await this.checkMatch();
+      });
 
       if (!this.hasPossibleMoves()) {
         // Do reshuffle or reset here
@@ -776,90 +796,80 @@ export class Game extends Scene {
         bestTile = tile;
       }
     }
-
     return bestTile;
   }
 
   async removeTileGroup(matches: Phaser.GameObjects.Image[][]): Promise<void> {
     const promises: Promise<void>[] = [];
+    let tilesMatches = 0;
 
     for (const group of matches) {
+      const groupPromises: Promise<void>[] = [];
+      tilesMatches += group.length;
+
+      const spawnTile =
+        this.selectedTile?.getData("key") === group[0].getData("key")
+          ? this.selectedTile
+          : this.targetTile;
+
       let spawnMakmakFlag = false;
       let spawnCol = 0;
       let spawnRow = 0;
-      // 🔢 Score logic
 
       if (group.length >= 5) {
-        this.score += 100;
-
         const centerTile = this.getTileWithMaxConnections(group);
-
         const centerCol = centerTile.getData("col");
         const centerRow = centerTile.getData("row");
-        spawnCol = this.selectedTile
-          ? this.selectedTile.getData("col")
-          : centerCol;
-        spawnRow = this.selectedTile
-          ? this.selectedTile.getData("row")
-          : centerRow;
+
+        spawnCol = spawnTile ? spawnTile.getData("col") : centerCol;
+        spawnRow = spawnTile ? spawnTile.getData("row") : centerRow;
 
         spawnMakmakFlag = true;
-      } else if (group.length === 4) this.score += 50;
-      else if (group.length === 3) this.score += 30;
+      }
 
-      // 🖥 Update UI
-      this.scoreText.setText(this.score.toString());
       for (const tile of group) {
-        if (tile.getData("key")) {
-          const col = tile.getData("col");
-          const row = tile.getData("row");
+        const col = tile.getData("col");
+        const row = tile.getData("row");
 
-          const border = this.add
-            .image(tile.x, tile.y, "TILE-BORDER")
-            .setDepth(tile.depth + 1)
-            .setDisplaySize(tile.displayWidth, tile.displayHeight);
+        const border = this.add
+          .image(tile.x, tile.y, "TILE-BORDER")
+          .setDepth(tile.depth + 1)
+          .setDisplaySize(tile.displayWidth, tile.displayHeight);
 
-          const promise = new Promise<void>((resolve) => {
-            // Delay to show the active effect
-            this.time.delayedCall(this.destroyDelay, () => {
-              // Animate fade out
-              this.tweens.add({
-                targets: [tile, border],
-                alpha: 0,
-                duration: this.destroyDuration,
-                onComplete: async () => {
-                  tile.destroy();
-                  border.destroy();
-
-                  // Remove from grid
-                  if (
-                    col >= 0 &&
-                    col < this.cols &&
-                    row >= 0 &&
-                    row < this.rows &&
-                    this.tileGrid[col][row] === tile
-                  ) {
-                    this.tileGrid[col][row] = null;
-                  }
-
-                  if (spawnMakmakFlag && spawnCol === col && spawnRow === row) {
-                    await this.spawnMakmakTile(spawnCol, spawnRow);
-                    spawnMakmakFlag = false;
-                  }
-
-                  resolve();
-                },
-              });
+        const promise = new Promise<void>((resolve) => {
+          this.time.delayedCall(this.destroyDelay, () => {
+            this.tweens.add({
+              targets: [tile, border],
+              alpha: 0,
+              duration: this.destroyDuration,
+              onComplete: () => {
+                tile.destroy();
+                border.destroy();
+                this.tileGrid[col][row] = null;
+                resolve();
+              },
             });
           });
+        });
 
-          promises.push(promise);
-        }
+        groupPromises.push(promise);
       }
+
+      // After group is destroyed, spawn makmak
+      const groupPromise = Promise.all(groupPromises).then(async () => {
+        if (spawnMakmakFlag) {
+          await this.spawnMakmakTile(spawnCol, spawnRow);
+        }
+      });
+
+      promises.push(groupPromise);
     }
 
     // Wait for all removals to finish
     await Promise.all(promises);
+
+    this.score += tilesMatches * this.scoreMultiplier;
+    this.scoreText.setText(this.score.toString());
   }
 
   async dropTiles(): Promise<void> {
@@ -903,17 +913,17 @@ export class Game extends Scene {
   }
 
   async fillTiles() {
+    let tileArray: { col: number; row: number }[] = [];
+
     for (let col = 0; col < this.cols; col++) {
       for (let row = 0; row < this.rows; row++) {
         if (this.tileGrid[col][row] === null) {
-          const newTile = this.addTile(col, row);
-          this.tileGrid[col][row] = newTile;
+          tileArray.push({ col, row });
         }
       }
     }
 
-    // Wait for tile drop animation duration, assuming 200ms here
-    await new Promise((resolve) => this.time.delayedCall(250, resolve));
+    await this.addTiles(tileArray);
   }
 
   timeUp() {
