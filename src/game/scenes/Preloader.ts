@@ -31,6 +31,7 @@ export class Preloader extends Scene {
     //  UI
     this.load.image("Logo", "assets/images/ui/Logo.png");
     this.load.image("Modal", "assets/images/ui/Modal.png");
+    this.load.image("RuleModal", "assets/images/ui/Rule-Modal.png");
     this.load.image("Primary", "assets/images/ui/button/Primary.png");
     this.load.image("Secondary", "assets/images/ui/button/Secondary.png");
     this.load.image("Danger", "assets/images/ui/button/Danger.png");

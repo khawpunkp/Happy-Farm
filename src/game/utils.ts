@@ -113,8 +113,9 @@ export const createButton = ({
 interface ModalOptions {
   scene: Phaser.Scene;
   title: string;
+  isRule?: boolean;
 }
-export const createModal = ({ scene, title }: ModalOptions) => {
+export const createModal = ({ scene, title, isRule }: ModalOptions) => {
   const gameWidth = scene.cameras.main.width;
   const gameHeight = scene.cameras.main.height;
 
@@ -125,18 +126,20 @@ export const createModal = ({ scene, title }: ModalOptions) => {
     .setInteractive();
 
   const popup = scene.add
-    .image(gameWidth / 2, gameHeight / 2, "Modal")
+    .image(gameWidth / 2, gameHeight / 2, isRule ? "RuleModal" : "Modal")
     .setOrigin(0.5)
     .setDepth(1000)
     .setAlpha(0);
 
   // Hide modal with fade out
   const hide = () => {
-    scene.tweens.add({
-      targets: [backdrop, popup, titleText, closeBtn, closeText],
-      alpha: 0,
-      duration: 300,
-      ease: "Power2",
+    scene.time.delayedCall(100, async () => {
+      scene.tweens.add({
+        targets: [backdrop, popup, titleText, closeBtn, closeText],
+        alpha: 0,
+        duration: 500,
+        ease: "Power2",
+      });
     });
   };
 
@@ -199,14 +202,14 @@ export const createModal = ({ scene, title }: ModalOptions) => {
     scene.tweens.add({
       targets: backdrop,
       alpha: 0.7,
-      duration: 300,
+      duration: 500,
       ease: "Power2",
     });
 
     scene.tweens.add({
       targets: [popup, titleText, closeBtn, closeText],
       alpha: 1,
-      duration: 300,
+      duration: 500,
       ease: "Power2",
     });
   };

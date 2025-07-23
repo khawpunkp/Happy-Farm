@@ -33,6 +33,7 @@ export class MainMenu extends Scene {
     const ruleModal = createModal({
       scene: this,
       title: "กติกาการเล่น\nและการให้คะแนน",
+      isRule: true,
     });
 
     this.startButton = createButton({
