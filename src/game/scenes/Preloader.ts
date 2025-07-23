@@ -10,40 +10,39 @@ export class Preloader extends Scene {
     const gameHeight = this.cameras.main.height;
 
     this.add
-      .image(0, 0, "BG_LOADING")
+      .image(0, 0, "BG_Loading")
       .setOrigin(0, 0)
       .setDisplaySize(gameWidth, gameHeight);
   }
 
   preload() {
-    //  Load the assets for the game - Replace with the path to your own assets
-    this.load.image("BG_MENU", "assets/BG_MENU.png");
-    this.load.image("BG_PLAY", "assets/BG_PLAY.png");
-    this.load.image("BTN_PLAY", "assets/BTN_PLAY.png");
-    this.load.image("COIN_BG", "assets/COIN_BG.png");
-    this.load.image("TIME_BG", "assets/TIME_BG.png");
-    this.load.image("POPUP_WIN", "assets/POPUP_WIN.png");
-    this.load.image("BURGER", "assets/BURGER.png");
-    this.load.image("DRINK", "assets/DRINK.png");
-    this.load.image("EGGTART", "assets/EGGTART.png");
-    this.load.image("MAKMAK", "assets/MAKMAK.png");
-    this.load.image("MOONCAKE", "assets/MOONCAKE.png");
-    this.load.image("BOARD", "assets/BOARD.png");
-    this.load.image("TILE-BORDER", "assets/TILE-BORDER.png");
+    // BG
+    this.load.image("BG_Main", "assets/images/background/Main.png");
+
+    // Gameplay
+    this.load.image("Board", "assets/images/gameplay/Board.png");
+    this.load.image("Burger", "assets/images/gameplay/Burger.png");
+    this.load.image("Drink", "assets/images/gameplay/Drink.png");
+    this.load.image("Eggtart", "assets/images/gameplay/Eggtart.png");
+    this.load.image("Makmak", "assets/images/gameplay/Makmak.png");
+    this.load.image("Mooncake", "assets/images/gameplay/Mooncake.png");
+    this.load.image("TileBorder", "assets/images/gameplay/TileBorder.png");
+
+    //  UI
+    this.load.image("Logo", "assets/images/ui/Logo.png");
+    this.load.image("Modal", "assets/images/ui/Modal.png");
+    this.load.image("Primary", "assets/images/ui/button/Primary.png");
+    this.load.image("Secondary", "assets/images/ui/button/Secondary.png");
+    this.load.image("Danger", "assets/images/ui/button/Danger.png");
+    this.load.image("Disable", "assets/images/ui/button/Disable.png");
   }
 
   create() {
-    //  When all the assets have loaded, it's often worth creating global objects here that the rest of the game can use.
-    //  For example, we will define our 'coin' animation here, so we can use it in other scenes:
-
-    //  When all the assets are loaded go to the next scene.
-    //  We can go there immediately via: this.scene.start('MainMenu');
-    //  Or we could use a Scene transition to fade between the two scenes:
-    this.cameras.main.fadeOut(500, 0, 0, 0);
-    this.cameras.main.once("camerafadeoutcomplete", () => {
-      this.scene.start("MainMenu");
+    this.time.delayedCall(250, async () => {
+      this.cameras.main.fadeOut(500, 0, 0, 0);
+      this.cameras.main.once("camerafadeoutcomplete", () => {
+        this.scene.start("MainMenu");
+      });
     });
-
-    //  When the transition completes, it will move automatically to the MainMenu scene
   }
 }

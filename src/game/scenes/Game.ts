@@ -108,7 +108,7 @@ export class Game extends Scene {
     this.scoreText = this.add
       .text(gameWidth - 200, 355, "0", {
         fontSize: "65px",
-        fontFamily: "Prompt",
+        fontFamily: "Aktiv Grotesk Thai",
       })
       .setOrigin(0.5, 0.5)
       .setStroke("#673606", 10);
@@ -117,7 +117,7 @@ export class Game extends Scene {
     this.timeText = this.add
       .text(390, 355, "00:30", {
         fontSize: "65px",
-        fontFamily: "Prompt",
+        fontFamily: "Aktiv Grotesk Thai",
       })
       .setOrigin(0.5, 0.5)
       .setStroke("#673606", 10);
@@ -368,7 +368,7 @@ export class Game extends Scene {
           tilesFound++;
 
           const border = this.add
-            .image(tile.x, tile.y, "TILE-BORDER")
+            .image(tile.x, tile.y, "TILE_BORDER")
             .setDepth(tile.depth + 1)
             .setDisplaySize(tile.displayWidth, tile.displayHeight);
 
@@ -401,7 +401,7 @@ export class Game extends Scene {
     const makmakRow = makmak.getData("row");
 
     const border = this.add
-      .image(makmak.x, makmak.y, "TILE-BORDER")
+      .image(makmak.x, makmak.y, "TILE_BORDER")
       .setDepth(makmak.depth + 1)
       .setDisplaySize(makmak.displayWidth, makmak.displayHeight);
 
@@ -832,7 +832,7 @@ export class Game extends Scene {
         const row = tile.getData("row");
 
         const border = this.add
-          .image(tile.x, tile.y, "TILE-BORDER")
+          .image(tile.x, tile.y, "TILE_BORDER")
           .setDepth(tile.depth + 1)
           .setDisplaySize(tile.displayWidth, tile.displayHeight);
 
@@ -959,7 +959,7 @@ export class Game extends Scene {
         `คุณได้รับ\n${this.score} คะแนน`,
         {
           fontSize: "55px",
-          fontFamily: "Prompt",
+          fontFamily: "Aktiv Grotesk Thai",
           align: "center",
         }
       )

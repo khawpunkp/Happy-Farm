@@ -1,8 +1,8 @@
-import { GameObjects, Scene } from "phaser";
-import { createButtonWithImage } from "../utils";
+import { Scene } from "phaser";
+import { createButton, createModal } from "../utils";
 
 export class MainMenu extends Scene {
-  startButton: GameObjects.Image;
+  startButton: any;
 
   constructor() {
     super("MainMenu");
@@ -15,34 +15,57 @@ export class MainMenu extends Scene {
     const gameHeight = this.cameras.main.height;
 
     this.add
-      .image(0, 0, "BG_MENU")
+      .image(0, 0, "BG_Main")
       .setOrigin(0, 0)
       .setDisplaySize(gameWidth, gameHeight);
 
+    this.add.image(gameWidth / 2, 25 * 3, "Logo").setOrigin(0.5, 0);
+
     this.add
-      .text(gameWidth / 2, 850, "คงเหลือ 1/1 สิทธิ์ต่อวัน", {
+      .text(gameWidth / 2, 265 * 3, "คงเหลือ 1/1 สิทธิ์ต่อวัน", {
         fontSize: "45px",
-        fontFamily: "Arial", // หรือฟอนต์อื่นที่รองรับภาษาไทย
-        color: "black", // สีข้อความ
+        fontFamily: "Aktiv Grotesk Thai",
+        color: "black",
         align: "center",
       })
       .setOrigin(0.5, 0);
 
-    this.startButton = createButtonWithImage({
+    const ruleModal = createModal({
+      scene: this,
+      title: "กติกาการเล่น\nและการให้คะแนน",
+    });
+
+    this.startButton = createButton({
       scene: this,
       x: gameWidth / 2,
-      y: gameHeight / 2,
-      imageKey: "BTN_PLAY",
-      label: "",
-      imageScale: 1.6,
-      labelStyle: {},
-      pressedScale: 1.5,
+      y: 315 * (3 + 1 / 3),
+      imageKey: "Primary",
+      label: "เล่น",
+    });
+
+    this.startButton = createButton({
+      scene: this,
+      x: gameWidth / 2,
+      y: 390 * (3 + 1 / 3),
+      imageKey: "Secondary",
+      label: "กติกาการเล่น",
       callback: () => {
-        this.cameras.main.fadeOut(500, 0, 0, 0);
-        this.cameras.main.once("camerafadeoutcomplete", () => {
-          this.scene.start("Game");
-        });
+        ruleModal.show();
       },
+    });
+
+    this.startButton = createButton({
+      scene: this,
+      x: gameWidth / 2,
+      y: 465 * (3 + 1 / 3),
+      imageKey: "Danger",
+      label: "ออก",
+      // callback: () => {
+      //   this.cameras.main.fadeOut(500, 0, 0, 0);
+      //   this.cameras.main.once("camerafadeoutcomplete", () => {
+      //     this.scene.start("Loading");
+      //   });
+      // },
     });
   }
 }
